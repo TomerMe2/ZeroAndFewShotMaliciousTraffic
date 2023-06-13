@@ -1,0 +1,9 @@
+defaults:
+  - dataset: iot_intrusion_dataset.yaml
+  - model: simple_nn.yaml
+  - training_loop: classification_training_loop.yaml
+  - _self_
+
+experiment_name: test
+batch_size: 512
+num_workers: 32

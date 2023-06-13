@@ -1,0 +1,3 @@
+_target_: datasets.iot_intrusion_dataset.IotIntrusionDataset
+path: "raw_data/IoT Network Intrusion Dataset.csv"
+_partial_: true

@@ -1,0 +1,2 @@
+_target_: models.simple_nn.SimpleNN
+_partial_: true
