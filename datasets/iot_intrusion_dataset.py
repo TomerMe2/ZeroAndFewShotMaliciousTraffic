@@ -51,6 +51,7 @@ class IotIntrusionDataset(Dataset):
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y)
         X_train, scaler = self._preprocess(X_train)
+        self.clms = X_train.columns
         
         if is_train:
             self.X = X_train.values.astype(np.float32)
