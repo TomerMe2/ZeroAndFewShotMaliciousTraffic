@@ -5,6 +5,7 @@ import torchmetrics
 
 from losses.arc_face_loss_with_logits_out import ArcFaceLossWithLogitsOut
 
+
 class ClassificationTrainingLoop(pl.LightningModule):
 
     def __init__(self, model, num_classes):
@@ -14,7 +15,8 @@ class ClassificationTrainingLoop(pl.LightningModule):
             num_classes=num_classes, embedding_size=model.embedding_size)
         
         self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
-
+        self.save_hyperparameters()
+        
     def forward(self, x):
         return self.model(x)
 
@@ -28,7 +30,6 @@ class ClassificationTrainingLoop(pl.LightningModule):
         loss, logits = self.loss(embeddings, y)
         acc = self.acc(logits, y)
         
-        # TODO: compute acc
         self.log(f'loss/{kind}', loss, on_step=False, on_epoch=True)
         self.log(f'acc/{kind}', acc, on_step=False, on_epoch=True)
         return loss
