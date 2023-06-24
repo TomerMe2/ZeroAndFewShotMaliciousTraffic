@@ -1,10 +1,6 @@
 import hydra
 from omegaconf import DictConfig
-import numpy as np
 from clearml import Task
-import pandas as pd
-from torch.utils.data import DataLoader
-import pytorch_lightning as pl
 
 
 @hydra.main(version_base='1.3', config_path="configs/", config_name="train.yaml")
@@ -19,13 +15,9 @@ def main(conf: DictConfig):
     
     model = conf.model(input_size=train_dataset.row_size)
     training_loop = conf.training_loop(model=model, num_classes=train_dataset.num_classes)
-    
-    train_dataloader = DataLoader(train_dataset, batch_size=conf.batch_size, shuffle=True, num_workers=conf.num_workers)
-    test_dataloader = DataLoader(test_dataset, batch_size=conf.batch_size, shuffle=False, num_workers=conf.num_workers)
-    
-    trainer = pl.Trainer()
-    trainer.fit(training_loop, train_dataloader, test_dataloader)
-    
+    training_loop.fit(train_dataset, test_dataset,
+                      conf.batch_size, conf.num_workers)    
+
 
 if __name__ == '__main__':
     main()

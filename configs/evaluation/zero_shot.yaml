@@ -1,0 +1,3 @@
+_target_: evaluations.zero_shot.ZeroShotEevaluation
+is_neural_network: true
+_partial_: true

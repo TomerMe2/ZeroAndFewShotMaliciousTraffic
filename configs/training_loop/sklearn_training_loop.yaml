@@ -1,0 +1,3 @@
+_target_: training_loops.sklearn_training_loop.SklearnTrainingLoop
+model_save_path: oneclass_svm.pkl
+_partial_: true

@@ -28,6 +28,7 @@ class IotIntrusionDataset(Dataset):
         self.X = None
         self.y = None
         self.benign_label = None
+        self.label_encoder = None
         
         X_benign, X_malicious, y_benign, y_malicious = self._get_X_y()
         if not include_malicious_traffic:
@@ -78,14 +79,14 @@ class IotIntrusionDataset(Dataset):
         else:
             y = y_benign
         
-        le = LabelEncoder()
-        le.fit(y)
-        self.num_classes = len(le.classes_)
+        self.label_encoder = LabelEncoder()
+        self.label_encoder.fit(y)
+        self.num_classes = len(self.label_encoder.classes_)
         
-        y_benign = le.transform(y_benign)
+        y_benign = self.label_encoder.transform(y_benign)
         if y_malicious is not None:
-            y_malicious = le.transform(y_malicious)
-            self.benign_label = le.transform(['Normal'])[0]
+            y_malicious = self.label_encoder.transform(y_malicious)
+            self.benign_label = self.label_encoder.transform(['Normal'])[0]
         else:
             y_malicious = None
         
