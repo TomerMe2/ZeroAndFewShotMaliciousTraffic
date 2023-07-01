@@ -1,18 +1,26 @@
 from abc import ABC, abstractmethod
+import os
 
 import numpy as np
-from clearml import Logger
+from clearml import Logger, Task
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, auc
 
 
 class Evaluation(ABC):
     
-    def __init__(self, model, is_neural_network):
+    def __init__(self, model, is_neural_network, out_path):
         self.model = model
         self.is_neural_network = is_neural_network
+        self.out_path = out_path
         
+        if os.path.exists(self.out_path):
+            if not os.path.isdir(self.out_path):
+                raise ValueError(f"out_path {self.out_path} exists and is not a directory")
+        else:
+            os.mkdir(self.out_path)
+                
     
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
         embs_memory = self.memorize(train_dataloader)
@@ -26,9 +34,9 @@ class Evaluation(ABC):
     @abstractmethod
     def memorize(self, memorize_dataloader):
         """
-        returns a dict of {key: list_of_embeddings}
-        like, {src_ip: [emb1, emb2, ...]}
-        or {attack_type: [emb1, emb2, ...]}
+        returns a dict of {key: mean_embedding}
+        like, {src_ip1: mean_emb, src_ip2: mean_emb, ...}
+        or {attack_type1: mean_emb, attack_type2: mean_emb, ...}
         """
         pass
     
@@ -67,7 +75,7 @@ class Evaluation(ABC):
                 iteration=0,
                 table_plot=curr_wp_metrics_df
             )
-        
+                    
     def draw_histogram(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows):
             
         plt.hist(score_for_being_malicious_on_benign_flows, bins=100,
@@ -97,4 +105,12 @@ class Evaluation(ABC):
             series="plot", iteration=0, figure=plt, report_interactive=False)
         plt.clf()
         
+        auc_score = auc(fpr, tpr)
+        
+        df = pd.DataFrame({'fpr': fpr, 'tpr': tpr, 'thresholds': thresholds})
+        df = df.iloc[::100, :]   # the size of the df is too big, so we sample it
+        save_path = os.path.join(self.out_path, f'roc_auc_of_{auc_score:.3f}.csv')
+        df.to_csv(save_path, index=False)
+        Task.current_task().upload_artifact(f'roc_auc_of_{auc_score:.3f}.csv', artifact_object=save_path)
+
         return fpr, tpr, thresholds

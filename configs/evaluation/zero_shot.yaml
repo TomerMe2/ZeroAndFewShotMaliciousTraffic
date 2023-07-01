@@ -1,3 +1,4 @@
 _target_: evaluations.zero_shot.ZeroShotEevaluation
 is_neural_network: true
+out_path: test_out
 _partial_: true

@@ -8,8 +8,8 @@ from evaluations.evaluation import Evaluation
 
 class ZeroShotEevaluation(Evaluation):
     
-    def __init__(self, model, is_neural_network):
-        super().__init__(model, is_neural_network)
+    def __init__(self, model, is_neural_network, out_path):
+        super().__init__(model, is_neural_network, out_path)
 
     @torch.no_grad()
     def memorize(self, memorize_dataloader):
