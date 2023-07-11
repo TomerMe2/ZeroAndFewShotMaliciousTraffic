@@ -1,0 +1,83 @@
+import numpy as np
+import torch
+from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
+
+from evaluations.evaluation import Evaluation
+
+
+
+class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memorization
+    
+    def __init__(self, model, is_neural_network, out_path):
+        super().__init__(model, is_neural_network, out_path)
+
+
+    # overriding the evaluate method since whe nned to memorize *test* partial data, nit train 
+    def evaluate(self, train_dataloader, test_dataloader, test_dataset):
+        # train is used soly for the purpuse of calculating embedding, so we can simply pass the test data to the "train" parameter
+        super().evaluate(test_dataloader, test_dataloader, test_dataset)
+       
+
+    @torch.no_grad()
+    def memorize(self, memorize_dataloader):
+        AMOUNT_TO_MEMORIZE = 3 # the ammout of embedding to memorize for each label
+
+        if not self.is_neural_network:
+            # for classical machine learning we don't memorize
+            return None
+        
+        embs_dct = {}    # {attack: [emb1, emb2 ...]}
+        for batch in memorize_dataloader:
+            x, y = batch
+            embeddings = self.model(x)
+            
+            for emb, label in zip(embeddings, y):
+                label = label.item()
+
+                if label not in embs_dct: # this is a new label, initalizing empty embeding list.
+                    embs_dct[label] = []
+                
+                if len(embs_dct[label]) < AMOUNT_TO_MEMORIZE : # we still need another example for this label
+                    embs_dct[label].append(emb.cpu().numpy())
+        
+        emb_means = {attack:np.stack(embs).mean(axis=0) for attack, embs in embs_dct.items()}
+        return emb_means
+
+    @torch.no_grad()
+    def infer(self, test_dataloader, embs_memory, benign_label):
+        score_for_being_malicious_on_benign_flows = []
+        score_for_being_malicious_on_malicious_flows = []
+        malicious_attack_labels = []
+        for batch in tqdm(test_dataloader):
+            x, y = batch
+            y = y.cpu().numpy()
+            
+            if self.is_neural_network:
+                embeddings = self.model(x)
+                scores = []
+
+                for emb in embeddings:              
+                    sim = float('-inf')
+                    bestLable = None
+                    for label, meanEmbeding in embs_memory.items() :
+                        # find the most similar embeding, and use its label
+                        current_similarity = cosine_similarity(emb, meanEmbeding)
+                        if current_similarity > sim :
+                            sim = current_similarity
+                            bestLable = label
+
+                    # for benign_label we ant low score, for attack we want big score
+                    scores.append( -sim if bestLable == benign_label else sim)
+                
+            else:
+                # decision function returns negative for outliers and positive for inliers
+                # we wish to have positive scores for outliers and negative for inliers to be consistent with cosine distance
+                # (bigger value -> bigger chance of being malicious)
+                scores = -1 * self.model.decision_function(x.cpu().numpy())
+                
+            score_for_being_malicious_on_benign_flows.extend(scores[y == benign_label].tolist())
+            score_for_being_malicious_on_malicious_flows.extend(scores[y != benign_label].tolist())
+            malicious_attack_labels.extend(y[y != benign_label].tolist())
+            
+        return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)

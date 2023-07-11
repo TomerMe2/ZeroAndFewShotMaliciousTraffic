@@ -1,0 +1,4 @@
+_target_: evaluations.few_shot.FewShotEevaluation
+is_neural_network: true
+out_path: test_out
+_partial_: true
