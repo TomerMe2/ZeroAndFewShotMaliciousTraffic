@@ -1,0 +1,4 @@
+_target_: evaluations.autoencoder_eval.AutoEvaluation
+is_neural_network: true
+out_path: test_out
+_partial_: true
