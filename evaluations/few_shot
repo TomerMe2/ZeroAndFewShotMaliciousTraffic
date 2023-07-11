@@ -59,16 +59,16 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
                 for emb in embeddings:              
                     sim = float('-inf')
-                    bestLable = None
+                    bestLabel = None
                     for label, meanEmbeding in embs_memory.items() :
                         # find the most similar embeding, and use its label
                         current_similarity = cosine_similarity(emb, meanEmbeding)
                         if current_similarity > sim :
                             sim = current_similarity
-                            bestLable = label
+                            bestLabel = label
 
                     # for benign_label we ant low score, for attack we want big score
-                    scores.append( -sim if bestLable == benign_label else sim)
+                    scores.append( -sim if bestLabel == benign_label else sim)
                 
             else:
                 # decision function returns negative for outliers and positive for inliers
