@@ -13,7 +13,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     
     def __init__(self, model, is_neural_network, out_path):
         super().__init__(model, is_neural_network, out_path)
-        self.MEM_SIZES =  [5]#[1,5,10,30,50,300] # ammout of memory size to test
+        self.MEM_SIZES = [1,5,10,30,50,300] # ammout of memory size to test
         self.REPEAT_PER_MEM = 1 #30 # ammout of random selection to make for each memory
 
 
@@ -23,12 +23,8 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         
         for mem_size, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels in zip(self.MEM_SIZES, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels) :
         
-            self.draw_histogram(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
-            fprs, tprs, thresholds = self.draw_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
-        
-        
-        #self.compute_metrics_per_class_at_working_points(score_for_being_malicious_on_malicious_flows,test_dataset.label_encoder.inverse_transform(malicious_attack_labels), [0.0001, 0.001, 0.01, 0.05, 0.1],fprs, tprs, thresholds)
-
+            self.draw_histogram(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title=f'Cosine Similarity Histogram of Benign and Malicious Flows @MEM{mem_size}')
+            fprs, tprs, thresholds = self.draw_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title=f'Few Shot Evaluation ROC Curve @MEM{mem_size}', filename=f'MEM{mem_size}_roc_auc')
 
 
 
@@ -63,14 +59,14 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
 
         for mem_size in self.MEM_SIZES:
-            embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
+            cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
             for  x, y in tqdm(test_dataloader):
                 y = y.cpu().numpy()
                 
                 embeddings = self.model(x)
 
-                sims = cosine_similarity(embeddings.cpu().numpy(), embs_memory)
+                sims = cosine_similarity(embeddings.cpu().numpy(), cur_embs_memory)
 
                 max_sims = []
                 for v in sims :
@@ -82,7 +78,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                             best_matching_score = similarity
                             best_matching_label = label
 
-                    max_sims.append(1 - best_matching_score)
+                    max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
                 scores = np.array(max_sims)
 
                 score_for_being_malicious_on_benign_flows.append(np.array(scores[y == benign_label].tolist()))
