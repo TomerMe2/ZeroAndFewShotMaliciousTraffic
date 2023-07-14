@@ -27,7 +27,7 @@ class AutoEvaluation(Evaluation):
             y = y.cpu().numpy()
 
             recreated = self.model(x)
-            scores = self.loss(x, recreated)
+            scores = torch.tensor([self.loss(ix, iy) for ix, iy in zip(x, recreated)]) 
                 
             score_for_being_malicious_on_benign_flows.extend(scores[y == benign_label].tolist())
             score_for_being_malicious_on_malicious_flows.extend(scores[y != benign_label].tolist())

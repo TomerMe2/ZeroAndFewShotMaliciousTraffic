@@ -161,6 +161,7 @@ cython_debug/
 
 outputs/
 lightning_logs/
+test_out/
 
 raw_data
 .vscode

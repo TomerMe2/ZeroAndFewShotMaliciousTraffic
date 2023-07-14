@@ -7,7 +7,7 @@ class AutoEncoderTrainingLoop(NeuralNetworkTrainingLoop):
     def __init__(self, model, num_classes):
         super().__init__(model)
         self.loss =nn.MSELoss()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['model'])
 
     def step(self, batch, kind):
         x, _ = batch
