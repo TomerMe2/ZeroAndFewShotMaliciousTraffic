@@ -18,13 +18,16 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
 
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
-        embs_memory = self.memorize(train_dataloader)
+        embs_memory = self.memorize(test_dataloader)
         score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)
-        self.draw_histogram(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
-        fprs, tprs, thresholds = self.draw_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
-        self.compute_metrics_per_class_at_working_points(score_for_being_malicious_on_malicious_flows,
-                                                         test_dataset.label_encoder.inverse_transform(malicious_attack_labels), [0.0001, 0.001, 0.01, 0.05, 0.1],
-                                                         fprs, tprs, thresholds)
+        
+        for mem_size, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels in zip(self.MEM_SIZES, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels) :
+        
+            self.draw_histogram(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
+            fprs, tprs, thresholds = self.draw_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
+        
+        
+        #self.compute_metrics_per_class_at_working_points(score_for_being_malicious_on_malicious_flows,test_dataset.label_encoder.inverse_transform(malicious_attack_labels), [0.0001, 0.001, 0.01, 0.05, 0.1],fprs, tprs, thresholds)
 
 
 
@@ -35,8 +38,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
             raise Exception('few shot is suported for DL.')
         
         embs_dct = {}    # {attack: [emb1, emb2 ...]}
-        for batch in memorize_dataloader:
-            x, y = batch
+        for x, y in memorize_dataloader:
             embeddings = self.model(x)
             
             for emb, label in zip(embeddings, y):
@@ -57,41 +59,47 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
 
-        embs_memory = {label:torch.tensor(np.stack(embs).mean(axis=0)) for label, embs in embs_memory.items()}
-        embs_memory, embs_memory_labels = list(embs_memory.values()), list(embs_memory.keys())
+        embs_memory_labels, embs_memory =list(embs_memory.keys()), list(embs_memory.values())
 
 
-        for batch in tqdm(test_dataloader):
-            x, y = batch
-            y = y.cpu().numpy()
-            
-            embeddings = self.model(x)
+        for mem_size in self.MEM_SIZES:
+            embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
-            sims = cosine_similarity(embeddings.cpu().numpy(), embs_memory)
-
-            max_sims = []
-            for v in sims :
+            for  x, y in tqdm(test_dataloader):
+                y = y.cpu().numpy()
                 
-                best_matching_score = float('-inf')
-                best_matching_label = None
-                for label, similarity in zip(embs_memory_labels, v):
-                    if similarity > best_matching_score :
-                        best_matching_score = similarity
-                        best_matching_label = label
+                embeddings = self.model(x)
 
-                max_sims.append(1 - best_matching_score)
-            scores = torch.tensor(max_sims)
+                sims = cosine_similarity(embeddings.cpu().numpy(), embs_memory)
 
-            score_for_being_malicious_on_benign_flows.extend(scores[y == benign_label].tolist())
-            score_for_being_malicious_on_malicious_flows.extend(scores[y != benign_label].tolist())
-            malicious_attack_labels.extend(y[y != benign_label].tolist())
+                max_sims = []
+                for v in sims :
+                    
+                    best_matching_score = float('-inf')
+                    best_matching_label = None
+                    for label, similarity in zip(embs_memory_labels, v):
+                        if similarity > best_matching_score :
+                            best_matching_score = similarity
+                            best_matching_label = label
+
+                    max_sims.append(1 - best_matching_score)
+                scores = np.array(max_sims)
+
+                score_for_being_malicious_on_benign_flows.append(np.array(scores[y == benign_label].tolist()))
+                score_for_being_malicious_on_malicious_flows.append(np.array(scores[y != benign_label].tolist()))
+                malicious_attack_labels.append(np.array(y[y != benign_label].tolist()))
             
-        return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)
+        return score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels
 
 
 
 
-
+    # get a sublist of n random elements, if n is too large, return entire list
+    def pickN(self, lst, n):
+        try:
+            return random.sample(lst, n)
+        except ValueError:
+            return lst
 
 
 
@@ -234,11 +242,3 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     #         malicious_attack_labels.append(np.array(y[y != benign_label].tolist()))
             
     #     return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)
-    
-
-    # # get a sublist of n random elements, if n is too large, return entire list
-    # def pickN(self, lst, n):
-    #     try:
-    #         return random.sample(lst, n)
-    #     except ValueError:
-    #         return lst
