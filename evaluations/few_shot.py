@@ -57,8 +57,8 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
 
-        embs_memory = {label:np.stack(embs).mean(axis=0) for label, embs in embs_memory.items()}
-        embs_memory = list(embs_memory.values())
+        embs_memory = {label:torch.tensor(np.stack(embs).mean(axis=0)) for label, embs in embs_memory.items()}
+        embs_memory, embs_memory_labels = list(embs_memory.values()), list(embs_memory.keys())
 
 
         for batch in tqdm(test_dataloader):
@@ -66,10 +66,21 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
             y = y.cpu().numpy()
             
             embeddings = self.model(x)
-                
+
             sims = cosine_similarity(embeddings.cpu().numpy(), embs_memory)
-            max_sims = sims.max(axis=1)
-            scores = 1 - max_sims
+
+            max_sims = []
+            for v in sims :
+                
+                best_matching_score = float('-inf')
+                best_matching_label = None
+                for label, similarity in zip(embs_memory_labels, v):
+                    if similarity > best_matching_score :
+                        best_matching_score = similarity
+                        best_matching_label = label
+
+                max_sims.append(1 - best_matching_score)
+            scores = torch.tensor(max_sims)
 
             score_for_being_malicious_on_benign_flows.extend(scores[y == benign_label].tolist())
             score_for_being_malicious_on_malicious_flows.extend(scores[y != benign_label].tolist())
