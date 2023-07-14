@@ -1,10 +1,10 @@
 defaults:
   - dataset: iot_intrusion_dataset.yaml
-  - evaluation: autoencoder_eval.yaml
+  - evaluation: few_shot.yaml
   - _self_
 
-training_loop_class: training_loops.autoencoder_training_loop.AutoEncoderTrainingLoop
+training_loop_class: training_loops.classification_training_loop.ClassificationTrainingLoop
 experiment_name: test_eval
-checkpoint_path: C:\Users\42spa\Programing\PythonApps\FewShotMaliciousTraffic\lightning_logs\version_8\checkpoints\epoch=49-step=3150.ckpt
+checkpoint_path: lightning_logs\Tomers\epoch=49-step=3150.ckpt
 batch_size: 512
 num_workers: 20

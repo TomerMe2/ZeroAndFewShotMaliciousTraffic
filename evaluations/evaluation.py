@@ -45,7 +45,7 @@ class Evaluation(ABC):
         pass
     
     def compute_metrics_per_class_at_working_points(self, score_for_being_malicious_on_malicious_flows,
-                                                    malicious_attack_labels, fprs_working_points, fprs, tprs, thresholds):
+                                                    malicious_attack_labels, fprs_working_points, fprs, tprs, thresholds, title_extension=''):
         
         def metrics_given_class_and_threshold(threshold, curr_malicious_scores):
             true_positive = np.sum(curr_malicious_scores > threshold)
@@ -71,37 +71,37 @@ class Evaluation(ABC):
                                               columns=['Malicious Class', 'tpr (rate of identified malicious flows)', 'fnr (rate of not identified malicious flow)'])
             Logger.current_logger().report_table(
                 "Binary Metrics Per Class at Working Point",
-                f"Metrics @ FPR={fpr_wp}, TPR={tprs[idx]}",
+                f"Metrics @ FPR={fpr_wp}, TPR={tprs[idx]}" + title_extension,
                 iteration=0,
                 table_plot=curr_wp_metrics_df
             )
                     
-    def draw_histogram(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows):
+    def draw_histogram(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title='Cosine Similarity Histogram of Benign and Malicious Flows'):
             
         plt.hist(score_for_being_malicious_on_benign_flows, bins=100,
                  alpha=0.5, label='benign', density=True)
         plt.hist(score_for_being_malicious_on_malicious_flows, bins=100,
                  alpha=0.5, label='malicious', density=True)
         
-        plt.title('Scores of Being Malicious Histogram of Benign and Malicious Flows')
+        plt.title(title)
         plt.xlabel('Score of Being Malicious')
         plt.ylabel('Density')
         plt.legend()
         Logger.current_logger().report_matplotlib_figure(
-            title="Cosine Similarity Histogram of Benign and Malicious Flows",
+            title=title,
             series="plot", iteration=0, figure=plt, report_interactive=False)
         plt.clf()
 
-    def draw_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows):
+    def draw_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title='Zero Shot Evaluation ROC Curve', filename=None):
         fpr, tpr, thresholds = roc_curve(['Malicious'] * len(score_for_being_malicious_on_malicious_flows) + ['Benign'] * len(score_for_being_malicious_on_benign_flows),
                                         score_for_being_malicious_on_malicious_flows.tolist() + score_for_being_malicious_on_benign_flows.tolist(),
                                         pos_label='Malicious')
         plt.plot(fpr, tpr)
-        plt.title('Zero Shot Evaluation ROC Curve')
+        plt.title(title)
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         Logger.current_logger().report_matplotlib_figure(
-            title="Zero Shot Evaluation ROC Curve",
+            title=title,
             series="plot", iteration=0, figure=plt, report_interactive=False)
         plt.clf()
         
@@ -109,8 +109,9 @@ class Evaluation(ABC):
         
         df = pd.DataFrame({'fpr': fpr, 'tpr': tpr, 'thresholds': thresholds})
         df = df.iloc[::100, :]   # the size of the df is too big, so we sample it
-        save_path = os.path.join(self.out_path, f'roc_auc_of_{auc_score:.3f}.csv')
+        filename =  f'{filename if filename else "roc_auc_of"}_{auc_score:.3f}.csv'
+        save_path = os.path.join(self.out_path, filename)
         df.to_csv(save_path, index=False)
-        Task.current_task().upload_artifact(f'roc_auc_of_{auc_score:.3f}.csv', artifact_object=save_path)
+        Task.current_task().upload_artifact(filename, artifact_object=save_path)
 
         return fpr, tpr, thresholds
