@@ -54,45 +54,63 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_benign_flows = []
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
+        numOfBatches = 0
 
         embs_memory_labels, embs_memory =list(embs_memory.keys()), list(embs_memory.values())
 
 
         for mem_size in self.MEM_SIZES:
-            cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
-            cur_score_for_being_malicious_on_benign_flows = []
-            cur_score_for_being_malicious_on_malicious_flows = []
-            cur_malicious_attack_labels = []
-            for  x, y in tqdm(test_dataloader):
-                y = y.cpu().numpy()
-                
-                embeddings = self.model(x)
+            all_attempt_scores = {} # key : (batchID, attemptID), value : scores list
+            ys = {} # key : batchID, value : y list
 
-                sims = cosine_similarity(embeddings.cpu().numpy(), cur_embs_memory)
+            for random_attempt in range(self.REPEAT_PER_MEM) :
+                cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
-                max_sims = []
-                for v in sims :
+                batch = 0
+                for  x, y in tqdm(test_dataloader):
+                    y = y.cpu().numpy()
                     
-                    best_matching_score = float('-inf')
-                    best_matching_label = None
-                    for label, similarity in zip(embs_memory_labels, v):
-                        if similarity > best_matching_score :
-                            best_matching_score = similarity
-                            best_matching_label = label
+                    embeddings = self.model(x)
 
-                    max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
-                
-                scores = np.array(max_sims)
+                    sims = cosine_similarity(embeddings.cpu().numpy(), cur_embs_memory)
 
-                cur_score_for_being_malicious_on_benign_flows.extend(np.array(scores[y == benign_label].tolist()))
-                cur_score_for_being_malicious_on_malicious_flows.extend(np.array(scores[y != benign_label].tolist()))
-                cur_malicious_attack_labels.extend(np.array(y[y != benign_label].tolist()))
+                    max_sims = []
+                    for v in sims :
+                        
+                        best_matching_score = float('-inf')
+                        best_matching_label = None
+                        for label, similarity in zip(embs_memory_labels, v):
+                            if similarity > best_matching_score :
+                                best_matching_score = similarity
+                                best_matching_label = label
 
-            score_for_being_malicious_on_benign_flows.append(np.array(cur_score_for_being_malicious_on_benign_flows))
-            score_for_being_malicious_on_malicious_flows.append(np.array(cur_score_for_being_malicious_on_malicious_flows))
-            malicious_attack_labels.append(np.array(cur_malicious_attack_labels))
+                        max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
+                    
+                    all_attempt_scores[(batch, random_attempt)] = np.array(max_sims)
+                    if batch not in ys :
+                        ys[batch] = y
+                    batch+=1
+                    numOfBatches = max(numOfBatches, batch)
+
             
+            mem_score_for_being_malicious_on_benign_flows = []
+            mem_score_for_being_malicious_on_malicious_flows = []
+            mem_malicious_attack_labels = []
+            for batch in range(numOfBatches):
+                attempt_scores = []
+                for attempt in range(self.REPEAT_PER_MEM) :
+                    attempt_scores.append(all_attempt_scores[(batch, attempt)])
+                batch_score = np.array([statistics.mean(x_scores) for x_scores in list(zip(*attempt_scores))])
+
+                mem_score_for_being_malicious_on_benign_flows.extend(batch_score[ys[batch] == benign_label].tolist())
+                mem_score_for_being_malicious_on_malicious_flows.extend(batch_score[ys[batch] != benign_label].tolist())
+                mem_malicious_attack_labels.extend(ys[batch][ys[batch] != benign_label].tolist())
+
+            score_for_being_malicious_on_benign_flows.append(mem_score_for_being_malicious_on_benign_flows)
+            score_for_being_malicious_on_malicious_flows.append(mem_score_for_being_malicious_on_malicious_flows)
+            malicious_attack_labels.append(mem_malicious_attack_labels)
+          
         return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)
 
 
