@@ -61,6 +61,9 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         for mem_size in self.MEM_SIZES:
             cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
+            cur_score_for_being_malicious_on_benign_flows = []
+            cur_score_for_being_malicious_on_malicious_flows = []
+            cur_malicious_attack_labels = []
             for  x, y in tqdm(test_dataloader):
                 y = y.cpu().numpy()
                 
@@ -79,13 +82,18 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                             best_matching_label = label
 
                     max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
+                
                 scores = np.array(max_sims)
 
-                score_for_being_malicious_on_benign_flows.append(np.array(scores[y == benign_label].tolist()))
-                score_for_being_malicious_on_malicious_flows.append(np.array(scores[y != benign_label].tolist()))
-                malicious_attack_labels.append(np.array(y[y != benign_label].tolist()))
+                cur_score_for_being_malicious_on_benign_flows.extend(np.array(scores[y == benign_label].tolist()))
+                cur_score_for_being_malicious_on_malicious_flows.extend(np.array(scores[y != benign_label].tolist()))
+                cur_malicious_attack_labels.extend(np.array(y[y != benign_label].tolist()))
+
+            score_for_being_malicious_on_benign_flows.append(np.array(cur_score_for_being_malicious_on_benign_flows))
+            score_for_being_malicious_on_malicious_flows.append(np.array(cur_score_for_being_malicious_on_malicious_flows))
+            malicious_attack_labels.append(np.array(cur_malicious_attack_labels))
             
-        return score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels
+        return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)
 
 
 
