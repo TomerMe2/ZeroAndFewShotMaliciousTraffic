@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import random
 import statistics
-from clearml import Logger, Task
+from clearml import Task
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import os
@@ -15,7 +15,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     
     def __init__(self, model, is_neural_network, out_path):
         super().__init__(model, is_neural_network, out_path)
-        self.MEM_SIZES = [1,5,10,30,50,300] # ammout of memory size to test
+        self.MEM_SIZES = [300] #[1,5,10,30,50,300] # ammout of memory size to test
         self.REPEAT_PER_MEM = 30 # ammout of random selection to make for each memory
 
 
@@ -63,34 +63,25 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
     @torch.no_grad()
     def infer(self, test_dataloader, embs_memory, benign_label):
-        score_for_being_malicious_on_benign_flows = []
-        score_for_being_malicious_on_malicious_flows = []
-        malicious_attack_labels = []
-        scores_stds = []
-        numOfBatches = 0
-
         embs_memory_labels, embs_memory =list(embs_memory.keys()), list(embs_memory.values())
+        numOfBatches = 0
+        batch = 0
+        all_attempt_scores = {} # key : (batchID, attemptID, mem_size), value : scores list
+        ys = {} # key : batchID, value : y list
 
+        for  x, y in tqdm(test_dataloader):
+            y = y.cpu().numpy()                    
+            embeddings = self.model(x)
 
-        for mem_size in self.MEM_SIZES:
+            for mem_size in self.MEM_SIZES:
 
-            all_attempt_scores = {} # key : (batchID, attemptID), value : scores list
-            ys = {} # key : batchID, value : y list
-
-            for random_attempt in range(self.REPEAT_PER_MEM) :
-                cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
-
-                batch = 0
-                for  x, y in tqdm(test_dataloader):
-                    y = y.cpu().numpy()
-                    
-                    embeddings = self.model(x)
-
+                for random_attempt in range(self.REPEAT_PER_MEM) :
+                    cur_embs_memory = [np.stack(self.pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]        
                     sims = cosine_similarity(embeddings.cpu().numpy(), cur_embs_memory)
 
                     max_sims = []
                     for v in sims :
-                        
+                            
                         best_matching_score = float('-inf')
                         best_matching_label = None
                         for label, similarity in zip(embs_memory_labels, v):
@@ -99,35 +90,46 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                                 best_matching_label = label
 
                         max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
-                    
-                    all_attempt_scores[(batch, random_attempt)] = np.array(max_sims)
+                        
+                    all_attempt_scores[(batch, random_attempt, mem_size)] = np.array(max_sims)
                     if batch not in ys :
                         ys[batch] = y
-                    batch+=1
-                    numOfBatches = max(numOfBatches, batch)
+           
+          
+            batch+=1
+            numOfBatches = max(numOfBatches, batch)
 
-            
+        
+
+        score_for_being_malicious_on_benign_flows = []
+        score_for_being_malicious_on_malicious_flows = []
+        malicious_attack_labels = []
+        scores_stds = []
+
+        for mem_size in self.MEM_SIZES:
             mem_score_for_being_malicious_on_benign_flows = []
             mem_score_for_being_malicious_on_malicious_flows = []
             mem_malicious_attack_labels = []
             stds = []
+
             for batch in range(numOfBatches):
                 attempt_scores = []
                 for attempt in range(self.REPEAT_PER_MEM) :
-                    attempt_scores.append(all_attempt_scores[(batch, attempt)])
+                    attempt_scores.append(all_attempt_scores[(batch, attempt, mem_size)])
                 attempt_scores = list(zip(*attempt_scores))
                 batch_score = np.array([statistics.mean(x_scores) for x_scores in attempt_scores])
                 stds.extend([0 if len(x_scores) == 1 else statistics.stdev(x_scores) for x_scores in attempt_scores])
 
-                mem_score_for_being_malicious_on_benign_flows.extend(batch_score[ys[batch] == benign_label].tolist())
-                mem_score_for_being_malicious_on_malicious_flows.extend(batch_score[ys[batch] != benign_label].tolist())
-                mem_malicious_attack_labels.extend(ys[batch][ys[batch] != benign_label].tolist())
+                mem_score_for_being_malicious_on_benign_flows.extend(batch_score[ys[batch] == benign_label])
+                mem_score_for_being_malicious_on_malicious_flows.extend(batch_score[ys[batch] != benign_label])
+                mem_malicious_attack_labels.extend(ys[batch][ys[batch] != benign_label])
 
-            score_for_being_malicious_on_benign_flows.append(mem_score_for_being_malicious_on_benign_flows)
-            score_for_being_malicious_on_malicious_flows.append(mem_score_for_being_malicious_on_malicious_flows)
-            malicious_attack_labels.append(mem_malicious_attack_labels)
-            scores_stds.append(stds)
-          
+            score_for_being_malicious_on_benign_flows.append(np.array(mem_score_for_being_malicious_on_benign_flows))
+            score_for_being_malicious_on_malicious_flows.append(np.array(mem_score_for_being_malicious_on_malicious_flows))
+            malicious_attack_labels.append(np.array(mem_malicious_attack_labels))
+            scores_stds.append(np.array(stds))
+
+
         return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels), np.array(scores_stds)
 
 
