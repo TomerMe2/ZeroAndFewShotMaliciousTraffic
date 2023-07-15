@@ -5,7 +5,6 @@ import statistics
 from clearml import Task, Logger
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-import os
 from sklearn.metrics import roc_curve
 import pandas as pd
 
