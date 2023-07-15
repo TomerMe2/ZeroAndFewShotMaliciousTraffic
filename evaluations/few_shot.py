@@ -15,8 +15,8 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     
     def __init__(self, model, is_neural_network, out_path):
         super().__init__(model, is_neural_network, out_path)
-        self.MEM_SIZES = [300] #[1,5,10,30,50,300] # ammout of memory size to test
-        self.REPEAT_PER_MEM = 30 # ammout of random selection to make for each memory
+        self.MEM_SIZES = [1,5,10,30,50,300] # ammout of memory size to test
+        self.REPEAT_PER_MEM = 100 # ammout of random selection to make for each memory
 
 
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
