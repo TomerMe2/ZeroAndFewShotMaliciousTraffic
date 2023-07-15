@@ -2,10 +2,12 @@ import numpy as np
 import torch
 import random
 import statistics
-from clearml import Task
+from clearml import Task, Logger
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import os
+from sklearn.metrics import roc_curve
+import pandas as pd
 
 from evaluations.evaluation import Evaluation
 
@@ -21,22 +23,80 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
         embs_memory = self.memorize(test_dataloader)
-        score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels, stds = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)
-        
-        for mem_size, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels, stds in zip(self.MEM_SIZES, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels, stds) :
-            std = statistics.mean(stds)
+        all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
+        fprs_wp = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.25, 0.3]
 
-            # upload std vector
-            filename = f'stds_MEM_{mem_size}.txt'
-            save_path = os.path.join(self.out_path, filename)
-            with open(save_path, 'w') as file:
-                for item in stds:
-                    file.write(str(item) + '\n')
-            Task.current_task().upload_artifact(filename, artifact_object=save_path)
+        for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels)) :
+            
+            #keys : (fpr_wp, label)
+            attempt_fnrs = {}
+            attempt_tprs = {}
+            
+            tprs_metrics = {} #key : fpr_wp
+            labels = np.unique(test_dataset.label_encoder.inverse_transform(mem_malicious_attack_labels[0]))
 
-        
-            self.draw_histogram(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title=f'Cosine Similarity Histogram of Benign and Malicious Flows @MEM{mem_size}, std={std}')
-            fprs, tprs, thresholds = self.draw_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title=f'Few Shot Evaluation ROC Curve @MEM{mem_size}, std={std}', filename=f'MEM{mem_size}_roc_auc')
+            for random_attempt, attempt_score_for_being_malicious_on_benign_flows, attempt_score_for_being_malicious_on_malicious_flows, attempt_malicious_attack_labels in zip(range(self.REPEAT_PER_MEM), mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels) :
+
+                fprs, tprs, thresholds = roc_curve(['Malicious'] * len(attempt_score_for_being_malicious_on_malicious_flows) + ['Benign'] * len(attempt_score_for_being_malicious_on_benign_flows),
+                                        attempt_score_for_being_malicious_on_malicious_flows.tolist() + attempt_score_for_being_malicious_on_benign_flows.tolist(),
+                                        pos_label='Malicious')
+
+            
+                for fpr_wp in fprs_wp:
+                    idx = np.argmin(np.abs(fprs - fpr_wp))
+                    threshold = thresholds[idx]
+                    tpr = tprs[idx]
+                    
+                    if fpr_wp not in tprs_metrics :
+                        tprs_metrics[fpr_wp] = []
+                    tprs_metrics[fpr_wp].append(tpr)
+
+
+                    metrics_per_class = []
+                    lbls = np.unique(test_dataset.label_encoder.inverse_transform(np.unique(attempt_malicious_attack_labels)))
+                    for curr_malicious_lbl, lbl in zip(np.unique(attempt_malicious_attack_labels), lbls):
+                        curr_malicious_scores = attempt_score_for_being_malicious_on_malicious_flows[attempt_malicious_attack_labels == curr_malicious_lbl]
+                        attempt_tpr, attempt_fpr = self.metrics_given_class_and_threshold(threshold, curr_malicious_scores)
+                        
+                        if (fpr_wp, lbl) not in attempt_fnrs :
+                            attempt_fnrs[(fpr_wp, lbl)] = []
+                            attempt_tprs[(fpr_wp, lbl)] = []
+
+                        attempt_fnrs[(fpr_wp, lbl)].append(attempt_fpr)
+                        attempt_tprs[(fpr_wp, lbl)].append(attempt_tpr)
+
+
+            for fpr_wp in fprs_wp:
+                tpr = tprs_metrics[fpr_wp]
+                tpr_mean = statistics.mean(tpr)
+                tpr_std = statistics.stdev(tpr)
+
+                metrics_per_class = []
+                for label in labels:
+                    fnrs = attempt_fnrs[(fpr_wp, label)]
+                    tprs = attempt_tprs[(fpr_wp, label)]
+
+                    metrics_per_class.append([label] + [statistics.mean(tprs), statistics.stdev(tprs),   statistics.mean(fnrs), statistics.stdev(fnrs)])
+
+                curr_wp_metrics_df = pd.DataFrame(metrics_per_class,
+                                              columns=['Malicious Class', 'tpr (rate of identified malicious flows)', 'std of tpr', 'fnr (rate of not identified malicious flow)', 'std of fnr'])
+                
+                Logger.current_logger().report_table(
+                    "Binary Metrics Per Class at Working Point",
+                    f"Metrics @ FPR={fpr_wp}, TPR={tpr_mean} (std={tpr_std}), MEM={mem_size}",
+                    iteration=0,
+                    table_plot=curr_wp_metrics_df
+                )
+
+
+    def metrics_given_class_and_threshold(self, threshold, curr_malicious_scores):
+        true_positive = np.sum(curr_malicious_scores > threshold)
+        false_negative = np.sum(curr_malicious_scores <= threshold)
+            
+        tpr = true_positive / (true_positive + false_negative)
+        fnr = false_negative / (false_negative + true_positive)
+            
+        return tpr, fnr
 
 
 
@@ -104,33 +164,33 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_benign_flows = []
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
-        scores_stds = []
 
-        for mem_size in self.MEM_SIZES:
+        for mem_size in tqdm(self.MEM_SIZES):
             mem_score_for_being_malicious_on_benign_flows = []
             mem_score_for_being_malicious_on_malicious_flows = []
             mem_malicious_attack_labels = []
-            stds = []
 
-            for batch in range(numOfBatches):
-                attempt_scores = []
-                for attempt in range(self.REPEAT_PER_MEM) :
-                    attempt_scores.append(all_attempt_scores[(batch, attempt, mem_size)])
-                attempt_scores = list(zip(*attempt_scores))
-                batch_score = np.array([statistics.mean(x_scores) for x_scores in attempt_scores])
-                stds.extend([0 if len(x_scores) == 1 else statistics.stdev(x_scores) for x_scores in attempt_scores])
+            for random_attempt in range(self.REPEAT_PER_MEM) :
+                attempt_score_for_being_malicious_on_benign_flows = []
+                attempt_score_for_being_malicious_on_malicious_flows = []
+                attempt_malicious_attack_labels = []
 
-                mem_score_for_being_malicious_on_benign_flows.extend(batch_score[ys[batch] == benign_label])
-                mem_score_for_being_malicious_on_malicious_flows.extend(batch_score[ys[batch] != benign_label])
-                mem_malicious_attack_labels.extend(ys[batch][ys[batch] != benign_label])
+                for batch in range(numOfBatches):
+                    scores = all_attempt_scores[(batch, random_attempt, mem_size)]
+
+                    attempt_score_for_being_malicious_on_benign_flows.extend(scores[ys[batch] == benign_label])
+                    attempt_score_for_being_malicious_on_malicious_flows.extend(scores[ys[batch] != benign_label])
+                    attempt_malicious_attack_labels.extend(ys[batch][ys[batch] != benign_label])
+
+                mem_score_for_being_malicious_on_benign_flows.append(attempt_score_for_being_malicious_on_benign_flows)
+                mem_score_for_being_malicious_on_malicious_flows.append(attempt_score_for_being_malicious_on_malicious_flows)
+                mem_malicious_attack_labels.append(attempt_malicious_attack_labels)  
 
             score_for_being_malicious_on_benign_flows.append(np.array(mem_score_for_being_malicious_on_benign_flows))
             score_for_being_malicious_on_malicious_flows.append(np.array(mem_score_for_being_malicious_on_malicious_flows))
             malicious_attack_labels.append(np.array(mem_malicious_attack_labels))
-            scores_stds.append(np.array(stds))
 
-
-        return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels), np.array(scores_stds)
+        return np.array(score_for_being_malicious_on_benign_flows), np.array(score_for_being_malicious_on_malicious_flows), np.array(malicious_attack_labels)
 
 
 
