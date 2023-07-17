@@ -1,4 +1,7 @@
 _target_: evaluations.few_shot.FewShotEevaluation
 is_neural_network: true
 out_path: test_out
+MEM_SIZES: [20] #[1,5,10,30,50,300]
+REPEAT_PER_MEM: 3 #100
+fprs_wp: [0.4] #[0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.22, 0.23, 0.25]
 _partial_: true

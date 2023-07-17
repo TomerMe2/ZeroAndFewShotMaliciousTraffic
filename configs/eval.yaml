@@ -5,6 +5,6 @@ defaults:
 
 training_loop_class: training_loops.classification_training_loop.ClassificationTrainingLoop
 experiment_name: test_eval
-checkpoint_path: lightning_logs\Tomers\epoch=49-step=3150.ckpt
+checkpoint_path: lightning_logs/Tomers/epoch=49-step=3150.ckpt
 batch_size: 512
-num_workers: 20
+num_workers: 8

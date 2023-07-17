@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import random
@@ -5,8 +6,9 @@ import statistics
 from clearml import Task, Logger
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, auc
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from evaluations.evaluation import Evaluation
 
@@ -14,22 +16,23 @@ from evaluations.evaluation import Evaluation
 
 class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memorization
     
-    def __init__(self, model, is_neural_network, out_path):
+    def __init__(self, model, is_neural_network, out_path, MEM_SIZES, REPEAT_PER_MEM,fprs_wp):
         super().__init__(model, is_neural_network, out_path)
-        self.MEM_SIZES = [1,5,10,30,50,300] # ammout of memory size to test
-        self.REPEAT_PER_MEM = 100 # ammout of random selection to make for each memory
+        self.MEM_SIZES = MEM_SIZES # ammout of memory size to test
+        self.REPEAT_PER_MEM = REPEAT_PER_MEM # ammout of random selection to make for each memory
+        self.fprs_wp = fprs_wp # fapse positive rates to display
 
 
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
         embs_memory = self.memorize(test_dataloader)
         all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
-        fprs_wp = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.25, 0.3]
 
         for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels)) :
             
             #keys : (fpr_wp, label)
-            attempt_fnrs = {}
-            attempt_tprs = {}
+            attempt_fnrs, attempt_tprs = {}, {}
+
+            fprs_lst, tprs_lst = [], []
             
             tprs_metrics = {} #key : fpr_wp
             labels = np.unique(test_dataset.label_encoder.inverse_transform(mem_malicious_attack_labels[0]))
@@ -40,8 +43,10 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                                         attempt_score_for_being_malicious_on_malicious_flows.tolist() + attempt_score_for_being_malicious_on_benign_flows.tolist(),
                                         pos_label='Malicious')
 
+                fprs_lst.append(fprs)
+                tprs_lst.append(tprs)
             
-                for fpr_wp in fprs_wp:
+                for fpr_wp in self.fprs_wp:
                     idx = np.argmin(np.abs(fprs - fpr_wp))
                     threshold = thresholds[idx]
                     tpr = tprs[idx]
@@ -64,8 +69,29 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                         attempt_fnrs[(fpr_wp, lbl)].append(attempt_fpr)
                         attempt_tprs[(fpr_wp, lbl)].append(attempt_tpr)
 
+            meaned_fprs = [statistics.mean(experiment) for experiment in zip(*fprs_lst)]
+            meaned_tprs = [statistics.mean(experiment) for experiment in zip(*tprs_lst)]
+            title = 'Few Shot Evaluation ROC Curve'
 
-            for fpr_wp in fprs_wp:
+            plt.plot(meaned_fprs, meaned_tprs)
+            plt.title(title)
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            Logger.current_logger().report_matplotlib_figure(
+                title=title,
+                series="plot", iteration=0, figure=plt, report_interactive=False)
+            plt.clf()
+        
+            auc_score = auc(meaned_fprs, meaned_tprs)
+        
+            df = pd.DataFrame({'fpr': meaned_fprs, 'tpr': meaned_tprs})
+            df = df.iloc[::100, :]   # the size of the df is too big, so we sample it
+            filename =  f'MEM{mem_size}_roc_auc_of_{auc_score:.3f}.csv'
+            save_path = os.path.join(self.out_path, filename)
+            df.to_csv(save_path, index=False)
+            Task.current_task().upload_artifact(filename, artifact_object=save_path)
+
+            for fpr_wp in self.fprs_wp:
                 tpr = tprs_metrics[fpr_wp]
                 tpr_mean = statistics.mean(tpr)
                 tpr_std = statistics.stdev(tpr)
