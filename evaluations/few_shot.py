@@ -33,25 +33,74 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         # fir each mem size averdge metrics, and repurt graph
         for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels)):
 
+            # cache for graphs
             list_fprs, list_tprs, list_auc = [], [], [] # list of all attempts' scores fir this mem size
+
+            #cache fir tabels
+            tprs_by_wp_label   = {} # key: (fpr_wp, label), value : list of the tprs of each attempt by the given fpr_wp
+            global_tprs = {} # key: fpr_wp, value : list of the global tpr of each attempt by the given fpr_wp
+
 
             for random_attempt, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels in zip(range(self.REPEAT_PER_MEM), mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels) :
 
                 fprs, tprs, thresholds, auc_score = self.calc_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
+                labels = np.unique(malicious_attack_labels)
                 list_fprs.append(fprs)
                 list_tprs.append(tprs)
                 list_auc.append(auc_score)
+
+                for fpr_wp in self.fprs_wp:
+                    idx = np.argmin(np.abs(fprs - fpr_wp))
+                    threshold = thresholds[idx]
+                    global_tpr = tprs[idx]
+
+                    if fpr_wp not in global_tprs :
+                        global_tprs[fpr_wp] = []
+                    global_tprs[fpr_wp].append(global_tpr)
+
+                    for curr_malicious_lbl in labels:
+                        curr_malicious_scores = score_for_being_malicious_on_malicious_flows[malicious_attack_labels == curr_malicious_lbl]
+                        [tpr, _] = self.metrics_given_class_and_threshold(threshold, curr_malicious_scores)
+                        
+                        if (fpr_wp, curr_malicious_lbl) not in tprs_by_wp_label :
+                            tprs_by_wp_label[(fpr_wp, curr_malicious_lbl)] = []
+                        tprs_by_wp_label[(fpr_wp, curr_malicious_lbl)].append(tpr)
+                    
+
+            # --------------------------------------------------
 
             # calculating metrics averages and stds
             mean_fprs = [statistics.mean(coresponding_metrics) for coresponding_metrics in zip(*list_fprs)]
             mean_tprs = [statistics.mean(coresponding_metrics) for coresponding_metrics in zip(*list_tprs)]
             mean_auc = statistics.mean(list_auc)
-            std_fprs = [statistics.stdev(coresponding_metrics) for coresponding_metrics in zip(*list_fprs)]
-            std_tprs = [statistics.stdev(coresponding_metrics) for coresponding_metrics in zip(*list_tprs)]
-            std_auc = statistics.stdev(list_auc)
 
             #draw ruc curve for aveged metrics
             self.plot_roc(mean_fprs, mean_tprs, [0]*len(mean_fprs), mean_auc, title='Few Shot Evaluation ROC Curve', filename=f'MEM{mem_size}')
+
+            #calculate tabels
+            for fpr_wp in self.fprs_wp:
+                mean_global_tpr = statistics.mean(global_tprs[fpr_wp])
+                std_global_tpr = statistics.stdev(global_tprs[fpr_wp])
+
+                metrics_per_class  = []
+                for label in labels:
+                    tprs = tprs_by_wp_label[(fpr_wp, label)]
+                    mean_tpr = statistics.mean(tprs)
+                    std_tpr = statistics.mean(tprs)
+
+
+                    metrics_per_class.append([label, mean_tpr, 1-mean_tpr, std_tpr])
+                
+                curr_wp_metrics_df = pd.DataFrame(metrics_per_class,
+                                              columns=['Malicious Class', 'tpr (rate of identified malicious flows)', 'fnr (rate of not identified malicious flow)', 'std of tpr'])
+                
+                Logger.current_logger().report_table(
+                        "Binary Metrics Per Class at Working Point",
+                        f"Metrics @ MEM={mem_size} FPR={fpr_wp}, TPR={mean_global_tpr} (std_global_tpr)",
+                        iteration=0,
+                        table_plot=curr_wp_metrics_df
+                    )
+
         
         
         
