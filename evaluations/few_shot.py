@@ -45,13 +45,13 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
             # calculating metrics averages and stds
             mean_fprs = [statistics.mean(coresponding_metrics) for coresponding_metrics in zip(*list_fprs)]
             mean_tprs = [statistics.mean(coresponding_metrics) for coresponding_metrics in zip(*list_tprs)]
-            mean_auc = statistics.mean(auc)
+            mean_auc = statistics.mean(list_auc)
             std_fprs = [statistics.stdev(coresponding_metrics) for coresponding_metrics in zip(*list_fprs)]
             std_tprs = [statistics.stdev(coresponding_metrics) for coresponding_metrics in zip(*list_tprs)]
-            std_auc = statistics.stdev(auc)
+            std_auc = statistics.stdev(list_auc)
 
             #draw ruc curve for aveged metrics
-            self.plot_roc(mean_fprs, mean_tprs, [0]*len(mean_fprs), mean_auc, title='Few Shot Evaluation ROC Curve', filename=f'MEM{mem_size}_roc_auc_of_{mean_auc:.3f}.csv')
+            self.plot_roc(mean_fprs, mean_tprs, [0]*len(mean_fprs), mean_auc, title='Few Shot Evaluation ROC Curve', filename=f'MEM{mem_size}')
         
         
         
@@ -88,8 +88,8 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         batch = 0                                       # a counter of the batchID. at end holds |batches|
         test_embedings = {}                             # key : batchID, value: list of embedings of the batch
         test_labels = {}                                # key : batchID, value: list of labels of the batch  
-        embs_memory =list(embs_memory.values())         # list of all test memirized embedings by attack type
         embs_memory_labels =list(embs_memory.keys())    # list of curesponding atttack types    
+        embs_memory =list(embs_memory.values())         # list of all test memirized embedings by attack type
         
         if not self.is_neural_network:
             raise Exception('few shot is suported for DL.')
@@ -152,9 +152,9 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                     attempt_score_for_being_malicious_on_malicious_flows.extend(scores[test_labels[batchID] != benign_label].tolist())
                     attempt_malicious_attack_labels.extend(test_labels[batchID][test_labels[batchID] != benign_label].tolist())
           
-                mem_score_for_being_malicious_on_benign_flows.append(attempt_score_for_being_malicious_on_benign_flows)
-                mem_score_for_being_malicious_on_malicious_flows.append(attempt_score_for_being_malicious_on_malicious_flows)
-                mem_malicious_attack_labels.append(attempt_malicious_attack_labels)
+                mem_score_for_being_malicious_on_benign_flows.append(np.array(attempt_score_for_being_malicious_on_benign_flows))
+                mem_score_for_being_malicious_on_malicious_flows.append(np.array(attempt_score_for_being_malicious_on_malicious_flows))
+                mem_malicious_attack_labels.append(np.array(attempt_malicious_attack_labels))
             
 
             score_for_being_malicious_on_benign_flows.append(mem_score_for_being_malicious_on_benign_flows)
