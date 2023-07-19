@@ -67,7 +67,7 @@ class Evaluation(ABC):
                 table_plot=curr_wp_metrics_df
             )
 
-    def metrics_given_class_and_threshold(threshold, curr_malicious_scores):
+    def metrics_given_class_and_threshold(self, threshold, curr_malicious_scores):
             true_positive = np.sum(curr_malicious_scores > threshold)
             false_negative = np.sum(curr_malicious_scores <= threshold)
             

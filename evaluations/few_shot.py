@@ -27,24 +27,27 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
         #memorization & scores infering
         embs_memory = self.memorize(train_dataloader)
-        all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
+        all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
 
 
         # fir each mem size averdge metrics, and repurt graph
-        for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, all_malicious_attack_labels)):
+        for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows)):
 
+            labels = np.unique(malicious_attack_labels)
+            text_labels = test_dataset.label_encoder.inverse_transform(labels)
+            
             # cache for graphs
             list_fprs, list_tprs, list_auc = [], [], [] # list of all attempts' scores fir this mem size
 
-            #cache fir tabels
+            #cache for tabels
             tprs_by_wp_label   = {} # key: (fpr_wp, label), value : list of the tprs of each attempt by the given fpr_wp
             global_tprs = {} # key: fpr_wp, value : list of the global tpr of each attempt by the given fpr_wp
 
 
-            for random_attempt, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, malicious_attack_labels in zip(range(self.REPEAT_PER_MEM), mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows, mem_malicious_attack_labels) :
+
+            for random_attempt, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows in zip(range(self.REPEAT_PER_MEM), mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows) :
 
                 fprs, tprs, thresholds, auc_score = self.calc_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
-                labels = np.unique(malicious_attack_labels)
                 list_fprs.append(fprs)
                 list_tprs.append(tprs)
                 list_auc.append(auc_score)
@@ -83,13 +86,13 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                 std_global_tpr = statistics.stdev(global_tprs[fpr_wp])
 
                 metrics_per_class  = []
-                for label in labels:
+                for label, txt_label in zip(labels, text_labels):
                     tprs = tprs_by_wp_label[(fpr_wp, label)]
                     mean_tpr = statistics.mean(tprs)
                     std_tpr = statistics.mean(tprs)
 
 
-                    metrics_per_class.append([label, mean_tpr, 1-mean_tpr, std_tpr])
+                    metrics_per_class.append([txt_label, mean_tpr, 1-mean_tpr, std_tpr])
                 
                 curr_wp_metrics_df = pd.DataFrame(metrics_per_class,
                                               columns=['Malicious Class', 'tpr (rate of identified malicious flows)', 'fnr (rate of not identified malicious flow)', 'std of tpr'])
@@ -100,15 +103,8 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                         iteration=0,
                         table_plot=curr_wp_metrics_df
                     )
+                
 
-        
-        
-        
-        
-        
-        # self.compute_metrics_per_class_at_working_points(score_for_being_malicious_on_malicious_flows,
-        #                                                  test_dataset.label_encoder.inverse_transform(malicious_attack_labels), [0.0001, 0.001, 0.01, 0.05, 0.1],
-        #                                                  fprs, tprs, thresholds)
 
 
     @torch.no_grad()
@@ -163,19 +159,22 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
 
+        # labels are independent from mem size and fpr_wp, can be calculated seperetly once.
+        for batchID in range(batch) :
+            malicious_attack_labels.extend(test_labels[batchID][test_labels[batchID] != benign_label].tolist())
+        malicious_attack_labels = np.array(malicious_attack_labels)
+
         # for each memory size, calculate metrics @REPEAT_PER_MEM times
         for mem_size in  tqdm(self.MEM_SIZES):
 
             mem_score_for_being_malicious_on_benign_flows = []
             mem_score_for_being_malicious_on_malicious_flows = []
-            mem_malicious_attack_labels = []
 
             for random_attempt in range(self.REPEAT_PER_MEM) :
                 cur_embs_memory = [np.stack(self._pickN(mem, mem_size)).mean(axis=0) for mem in embs_memory]
 
                 attempt_score_for_being_malicious_on_benign_flows = []
                 attempt_score_for_being_malicious_on_malicious_flows = []
-                attempt_malicious_attack_labels = []
 
                 for batchID in range(batch) :
                     sims = cosine_similarity(test_embedings[batchID], cur_embs_memory)
@@ -199,16 +198,13 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
 
                     attempt_score_for_being_malicious_on_benign_flows.extend(scores[test_labels[batchID] == benign_label].tolist())
                     attempt_score_for_being_malicious_on_malicious_flows.extend(scores[test_labels[batchID] != benign_label].tolist())
-                    attempt_malicious_attack_labels.extend(test_labels[batchID][test_labels[batchID] != benign_label].tolist())
           
                 mem_score_for_being_malicious_on_benign_flows.append(np.array(attempt_score_for_being_malicious_on_benign_flows))
                 mem_score_for_being_malicious_on_malicious_flows.append(np.array(attempt_score_for_being_malicious_on_malicious_flows))
-                mem_malicious_attack_labels.append(np.array(attempt_malicious_attack_labels))
             
 
             score_for_being_malicious_on_benign_flows.append(mem_score_for_being_malicious_on_benign_flows)
             score_for_being_malicious_on_malicious_flows.append(mem_score_for_being_malicious_on_malicious_flows)
-            malicious_attack_labels.append(mem_malicious_attack_labels)
 
 
         # -----------------------------------------------------------------------
