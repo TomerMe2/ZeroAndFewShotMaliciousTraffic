@@ -23,7 +23,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     def evaluate(self, train_dataloader, test_dataloader, test_dataset):
 
         #memorization & scores infering
-        embs_memory = self.memorize(train_dataloader)
+        embs_memory = self.memorize(test_dataloader)
         all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
 
 
@@ -111,6 +111,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         
         embs_dct = {}    # {attack: [emb1, emb2 ...]}
         for x, y in memorize_dataloader:
+            y = y.cpu().numpy()
             embeddings = self.model(x)
             
             for emb, label in zip(embeddings, y):
@@ -130,7 +131,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         batch = 0                                       # a counter of the batchID. at end holds |batches|
         test_embedings = {}                             # key : batchID, value: list of embedings of the batch
         test_labels = {}                                # key : batchID, value: list of labels of the batch  
-        embs_memory_labels =list(embs_memory.keys())    # list of curesponding atttack types    
+        embs_memory_attacks =list(embs_memory.keys())   # list of curesponding atttack types    
         embs_memory =list(embs_memory.values())         # list of all test memirized embedings by attack type
         
         if not self.is_neural_network:
@@ -182,7 +183,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                         # check all labels, finding the most similar mean embedding from memorization
                         best_matching_score = float('-inf')
                         best_matching_label = None
-                        for label, similarity in zip(embs_memory_labels, s):
+                        for label, similarity in zip(embs_memory_attacks, s):
                             if similarity > best_matching_score :
                                 best_matching_score = similarity
                                 best_matching_label = label
