@@ -46,16 +46,7 @@ class Evaluation(ABC):
     
     def compute_metrics_per_class_at_working_points(self, score_for_being_malicious_on_malicious_flows,
                                                     malicious_attack_labels, fprs_working_points, fprs, tprs, thresholds, title_extension=''):
-        
-        def metrics_given_class_and_threshold(threshold, curr_malicious_scores):
-            true_positive = np.sum(curr_malicious_scores > threshold)
-            false_negative = np.sum(curr_malicious_scores <= threshold)
-            
-            tpr = true_positive / (true_positive + false_negative)
-            fnr = false_negative / (false_negative + true_positive)
-            
-            return [tpr, fnr]
-                        
+                  
         metrics_per_class = {}
         for fpr_wp in fprs_working_points:
             idx = np.argmin(np.abs(fprs - fpr_wp))
@@ -64,7 +55,7 @@ class Evaluation(ABC):
             metrics_per_class = []
             for curr_malicious_lbl in np.unique(malicious_attack_labels):
                 curr_malicious_scores = score_for_being_malicious_on_malicious_flows[malicious_attack_labels == curr_malicious_lbl]
-                metrics_for_curr_malicious = metrics_given_class_and_threshold(threshold, curr_malicious_scores)
+                metrics_for_curr_malicious = self.metrics_given_class_and_threshold(threshold, curr_malicious_scores)
                 metrics_per_class.append([curr_malicious_lbl] + metrics_for_curr_malicious)
             
             curr_wp_metrics_df = pd.DataFrame(metrics_per_class,
@@ -75,6 +66,15 @@ class Evaluation(ABC):
                 iteration=0,
                 table_plot=curr_wp_metrics_df
             )
+
+    def metrics_given_class_and_threshold(self, threshold, curr_malicious_scores):
+            true_positive = np.sum(curr_malicious_scores > threshold)
+            false_negative = np.sum(curr_malicious_scores <= threshold)
+            
+            tpr = true_positive / (true_positive + false_negative)
+            fnr = false_negative / (false_negative + true_positive)
+            
+            return [tpr, fnr]
                     
     def draw_histogram(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title='Cosine Similarity Histogram of Benign and Malicious Flows'):
             
@@ -92,10 +92,15 @@ class Evaluation(ABC):
             series="plot", iteration=0, figure=plt, report_interactive=False)
         plt.clf()
 
+    
     def draw_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title='Zero Shot Evaluation ROC Curve', filename=None):
-        fpr, tpr, thresholds = roc_curve(['Malicious'] * len(score_for_being_malicious_on_malicious_flows) + ['Benign'] * len(score_for_being_malicious_on_benign_flows),
-                                        score_for_being_malicious_on_malicious_flows.tolist() + score_for_being_malicious_on_benign_flows.tolist(),
-                                        pos_label='Malicious')
+        fpr, tpr, thresholds, auc_score  = self.calc_roc(score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows)
+        self.plot_roc(fpr, tpr, thresholds, auc_score, title, filename)
+
+        return fpr, tpr, thresholds
+    
+    
+    def plot_roc(self, fpr, tpr, thresholds, auc_score, title, filename):
         plt.plot(fpr, tpr)
         plt.title(title)
         plt.xlabel('False Positive Rate')
@@ -104,14 +109,23 @@ class Evaluation(ABC):
             title=title,
             series="plot", iteration=0, figure=plt, report_interactive=False)
         plt.clf()
-        
-        auc_score = auc(fpr, tpr)
-        
+          
         df = pd.DataFrame({'fpr': fpr, 'tpr': tpr, 'thresholds': thresholds})
         df = df.iloc[::100, :]   # the size of the df is too big, so we sample it
         filename =  f'{filename if filename else "roc_auc_of"}_{auc_score:.3f}.csv'
         save_path = os.path.join(self.out_path, filename)
         df.to_csv(save_path, index=False)
         Task.current_task().upload_artifact(filename, artifact_object=save_path)
+    
 
-        return fpr, tpr, thresholds
+    def calc_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows):
+        fpr, tpr, thresholds = roc_curve(['Malicious'] * len(score_for_being_malicious_on_malicious_flows) + ['Benign'] * len(score_for_being_malicious_on_benign_flows),
+                                        score_for_being_malicious_on_malicious_flows.tolist() + score_for_being_malicious_on_benign_flows.tolist(),
+                                        pos_label='Malicious')
+        auc_score = auc(fpr, tpr)
+
+        return fpr, tpr, thresholds, auc_score
+
+
+       
+    
