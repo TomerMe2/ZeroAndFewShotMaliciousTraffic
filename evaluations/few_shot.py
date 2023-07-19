@@ -96,7 +96,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                 
                 Logger.current_logger().report_table(
                         "Binary Metrics Per Class at Working Point",
-                        f"Metrics @ MEM={mem_size} FPR={fpr_wp}, TPR={mean_global_tpr} ({std_global_tpr})",
+                        f"Metrics @ MEM={mem_size} FPR={fpr_wp}, TPR={mean_global_tpr} (std={std_global_tpr})",
                         iteration=0,
                         table_plot=curr_wp_metrics_df
                     )
