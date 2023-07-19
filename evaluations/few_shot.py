@@ -1,14 +1,11 @@
-import os
 import numpy as np
 import torch
 import random
 import statistics
-from clearml import Task, Logger
+from clearml import Logger
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from sklearn.metrics import roc_curve, auc
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from evaluations.evaluation import Evaluation
 
