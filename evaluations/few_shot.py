@@ -75,7 +75,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
             mean_auc = statistics.mean(list_auc)
 
             #draw ruc curve for aveged metrics
-            self.plot_roc(mean_fprs, mean_tprs, [0]*len(mean_fprs), mean_auc, title='Few Shot Evaluation ROC Curve', filename=f'MEM{mem_size}')
+            self.plot_roc(mean_fprs, mean_tprs, [0]*len(mean_fprs), mean_auc, title=f'Few Shot Evaluation ROC Curve @MEM{mem_size}', filename=f'MEM{mem_size}')
 
             #calculate tabels
             for fpr_wp in self.fprs_wp:
