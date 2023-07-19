@@ -118,7 +118,7 @@ class Evaluation(ABC):
         Task.current_task().upload_artifact(filename, artifact_object=save_path)
     
 
-    def calc_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows, title='Zero Shot Evaluation ROC Curve', filename=None):
+    def calc_roc(self, score_for_being_malicious_on_benign_flows, score_for_being_malicious_on_malicious_flows):
         fpr, tpr, thresholds = roc_curve(['Malicious'] * len(score_for_being_malicious_on_malicious_flows) + ['Benign'] * len(score_for_being_malicious_on_benign_flows),
                                         score_for_being_malicious_on_malicious_flows.tolist() + score_for_being_malicious_on_benign_flows.tolist(),
                                         pos_label='Malicious')
