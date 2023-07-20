@@ -5,6 +5,6 @@ defaults:
 
 training_loop_class: training_loops.classification_training_loop.ClassificationTrainingLoop
 experiment_name: test_eval
-checkpoint_path: no_such_file
+checkpoint_path: lightning_logs\version_32\checkpoints\epoch=49-step=13150.ckpt
 batch_size: 512
-num_workers: 8
+num_workers: 20
