@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+import torch
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -67,8 +68,8 @@ class TrafficDataset(ABC, Dataset):
                               X_test_benign, y_test_benign, scaler, X_malicious=None, y_malicious=None):
         
         if self.is_train:
-            self.X = preprocessed_X_train_benign.values.astype(np.float32)
-            self.y = y_train_benign
+            self.X = preprocessed_X_train_benign.values.astype(torch.LongTensor) # TODO : np.float32 ?
+            self.y = y_train_benign #.astype(np.float32) # TODO : should convert?
         else:
             X_test_benign, _ = self._preprocess(X_test_benign, scaler)
             
@@ -80,8 +81,8 @@ class TrafficDataset(ABC, Dataset):
                 X_test = X_test_benign
                 y_test = y_test_benign
                 
-            self.X = X_test.values.astype(np.float32)
-            self.y = y_test
+            self.X = X_test.values.astype(torch.LongTensor) # TODO : np.float32 ?
+            self.y = y_test #.astype(np.float32)  # TODO : should convert?
             
     def _label_encode(self, y_benign, y_malicious=None):
         if y_malicious is not None:
