@@ -10,8 +10,8 @@ class MqttDataset(TrafficDataset):
                         dst_ip_clm_nm='dst_ip', 
                         label_clm_nm='category',
                         flow_id_clms=['timestamp'],
-                        categorical_clms=['protocol', 'ip_flag_df','ip_flag_mf','ip_flag_rb','tcp_flag_res','tcp_flag_ns','tcp_flag_cwr','tcp_flag_ecn','tcp_flag_urg','tcp_flag_ack','tcp_flag_push','tcp_flag_reset','tcp_flag_syn','tcp_flag_fin','mqtt_messagetype','mqtt_messagelength','mqtt_flag_uname','mqtt_flag_passwd','mqtt_flag_retain','mqtt_flag_qos','mqtt_flag_willflag','mqtt_flag_clean','mqtt_flag_reserved'],
+                        categorical_clms=['protocol'],
                         all_label_related_clms=['category', 'src_ip'],
-                        overfit_clms= [], #['tcp_flag_ns', 'tcp_flag_res', 'ip_flag_rb', 'mqtt_flag_passwd', 'tcp_flag_syn'],
+                        overfit_clms= ['tcp_flag_ns', 'tcp_flag_res', 'ip_flag_rb', 'mqtt_flag_passwd', 'tcp_flag_syn'],
                         benign_label_in_dataset='Normal',
                         test_size=test_size)
