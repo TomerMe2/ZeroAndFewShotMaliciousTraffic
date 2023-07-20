@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -68,7 +68,7 @@ class TrafficDataset(ABC, Dataset):
         
         if self.is_train:
             self.X = preprocessed_X_train_benign.values.astype(np.float32)
-            self.y = y_train_benign
+            self.y = y_train_benign.astype(np.int64) # TODO : should convert?
         else:
             X_test_benign, _ = self._preprocess(X_test_benign, scaler)
             
@@ -81,7 +81,7 @@ class TrafficDataset(ABC, Dataset):
                 y_test = y_test_benign
                 
             self.X = X_test.values.astype(np.float32)
-            self.y = y_test
+            self.y = y_test.astype(np.int64)  # TODO : should convert?
             
     def _label_encode(self, y_benign, y_malicious=None):
         if y_malicious is not None:

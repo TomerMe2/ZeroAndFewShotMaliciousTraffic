@@ -1,7 +1,7 @@
 defaults:
-  - dataset: iot_intrusion_dataset.yaml
-  - model: autoencoder.yaml
-  - training_loop: autoencoder_training_loop.yaml
+  - dataset: mqtt_dataset.yaml
+  - model: simple_nn.yaml
+  - training_loop: classification_training_loop.yaml
   - _self_
 
 experiment_name: test
