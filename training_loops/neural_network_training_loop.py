@@ -37,6 +37,6 @@ class NeuralNetworkTrainingLoop(pl.LightningModule, TrainingLoop, ABC):
         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, 
                                      shuffle=False, num_workers=num_workers)
         
-        trainer = pl.Trainer(max_epochs=10)
+        trainer = pl.Trainer(max_epochs=50)
         trainer.fit(self, train_dataloader, test_dataloader)
 
