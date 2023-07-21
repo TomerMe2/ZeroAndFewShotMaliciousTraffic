@@ -6,4 +6,4 @@ defaults:
 
 experiment_name: test
 batch_size: 512
-num_workers: 20
+num_workers: 1
