@@ -27,7 +27,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows, malicious_attack_labels = self.infer(test_dataloader, embs_memory, test_dataset.benign_label)      
 
 
-        # fir each mem size averdge metrics, and repurt graph
+        # for each mem size averdge metrics, and repurt graph
         for mem_size, mem_score_for_being_malicious_on_benign_flows, mem_score_for_being_malicious_on_malicious_flows in tqdm(zip(self.MEM_SIZES, all_score_for_being_malicious_on_benign_flows, all_score_for_being_malicious_on_malicious_flows)):
 
             labels = np.unique(malicious_attack_labels)
@@ -157,7 +157,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
         score_for_being_malicious_on_malicious_flows = []
         malicious_attack_labels = []
 
-        # labels are independent from mem size and fpr_wp, can be calculated seperetly once.
+        # labels are independent from mem size and repeat num, can be calculated seperetly once.
         for batchID in range(batch) :
             malicious_attack_labels.extend(test_labels[batchID][test_labels[batchID] != benign_label].tolist())
         malicious_attack_labels = np.array(malicious_attack_labels)
