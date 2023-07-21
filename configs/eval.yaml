@@ -1,10 +1,10 @@
 defaults:
-  - dataset: mqtt_dataset.yaml
-  - evaluation: zero_shot.yaml
+  - dataset: iot_intrusion_dataset.yaml
+  - evaluation: few_shot.yaml
   - _self_
 
 training_loop_class: training_loops.classification_training_loop.ClassificationTrainingLoop
 experiment_name: test_eval
-checkpoint_path: lightning_logs\version_34\checkpoints\epoch=49-step=13500.ckpt
+checkpoint_path: lightning_logs\Tomers\epoch=49-step=3150.ckpt
 batch_size: 512
 num_workers: 20

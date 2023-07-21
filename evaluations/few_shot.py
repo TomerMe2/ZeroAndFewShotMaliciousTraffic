@@ -130,9 +130,12 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
     def infer(self, test_dataloader, embs_memory, benign_label):
         batch = 0                                       # a counter of the batchID. at end holds |batches|
         test_embedings = {}                             # key : batchID, value: list of embedings of the batch
-        test_labels = {}                                # key : batchID, value: list of labels of the batch  
+        test_labels = {}                                # key : batchID, value: list of labels of the batch    
+        #del embs_memory[benign_label]  #drop data on bengin 
         embs_memory_attacks =list(embs_memory.keys())   # list of curesponding atttack types    
         embs_memory =list(embs_memory.values())         # list of all test memirized embedings by attack type
+
+
         
         if not self.is_neural_network:
             raise Exception('few shot is suported for DL.')
@@ -191,6 +194,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                         # if the label is bengin - we the surer we are this is bengin, the **LOWER** the score
                         # if the label is malicious - we the surer we are this is malicious, the **HIGHER** the score
                         max_sims.append(1-best_matching_score if best_matching_label == benign_label else 1+best_matching_score)
+                        #max_sims.append(1+best_matching_score)
            
                     scores = np.array(max_sims)
 

@@ -12,6 +12,6 @@ class MqttDataset(TrafficDataset):
                         flow_id_clms=['timestamp'],
                         categorical_clms=['protocol', 'mqtt_messagetype'],
                         all_label_related_clms=['category', 'src_ip'],
-                        overfit_clms= ['tcp_flag_res', 'ip_flag_rb'],
+                        overfit_clms= [],
                         benign_label_in_dataset='Normal',
                         test_size=test_size)
