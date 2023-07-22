@@ -86,7 +86,7 @@ class FewShotEevaluation(Evaluation): # similar to ero shit, with diffrent memor
                 for label, txt_label in zip(labels, text_labels):
                     tprs = tprs_by_wp_label[(fpr_wp, label)]
                     mean_tpr = statistics.mean(tprs)
-                    std_tpr = statistics.mean(tprs)
+                    std_tpr = statistics.stdev(tprs)
 
 
                     metrics_per_class.append([txt_label, mean_tpr, 1-mean_tpr, std_tpr])
