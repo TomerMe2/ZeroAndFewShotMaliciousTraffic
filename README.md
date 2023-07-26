@@ -76,6 +76,6 @@ python train.py dataset=iot_intrusion_dataset training_loop=sklearn_training_loo
 ### Evaluation
 Config is located at ```configs/eval.yaml```.
 ```
-python eval.py dataset=iot_intrusion_dataset evaluation=zero_shot
-python eval.py dataset=iot_intrusion_dataset evaluation=few_shot
+python eval.py dataset=iot_intrusion_dataset evaluation=zero_shot checkpoint_path=PATH_TO_CKPT_FILE
+python eval.py dataset=iot_intrusion_dataset evaluation=few_shot checkpoint_path=PATH_TO_CKPT_FILE
 ```
