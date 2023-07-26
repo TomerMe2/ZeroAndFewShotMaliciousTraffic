@@ -2,8 +2,8 @@ from datasets.traffic_dataset import TrafficDataset
 
 
 class MqttDataset(TrafficDataset):
-    # dataset of https://sites.google.com/view/iot-network-intrusion-dataset/home
-
+    # dataset of  https://ieee-dataport.org/open-access/mqtt-iot-ids2020-mqtt-internet-things-intrusion-detection-dataset
+    
     def __init__(self, path, is_train, lbl_is_src_ip, include_malicious_traffic, test_size=0.2):        
         super().__init__(path, is_train, lbl_is_src_ip,include_malicious_traffic, 
                         src_ip_clm_nm='src_ip',
