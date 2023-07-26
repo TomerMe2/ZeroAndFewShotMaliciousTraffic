@@ -12,7 +12,7 @@ MetaFlowGuard is a neural network model trained using AAMSoftmax with the primar
 
 1. **Training:** As discussed earlier, the neural network is trained with AAMSoftmax loss to classify source IP flows.
 2. **Memorization:** In this stage, we generate the mean embedding of each source IP in the zero-shot scenario and the mean embedding of each attack type in the few-shot scenario and memorize them.
-3. **Inference:** For each incoming flow, we calculate its embedding and determine its proximity to the memorized embeddings. In the zero-shot scenario, if it's close to the memorized embeddings, it's considered benign; otherwise, it's deemed malicious since we memorize benign flows. In the few-shot scenario, if it's close to the memorized embeddings, it's classified as malicious; otherwise, it's classified as benign since we memorize benign flows.
+3. **Inference:** For each incoming flow, we calculate its embedding and determine its proximity to the memorized embeddings. In the zero-shot scenario, if it's close to the memorized embeddings, it's considered benign; otherwise, it's deemed malicious since we memorize benign flows. In the few-shot scenario, if it's close to a malicious memorized mean embedding, it's classified as malicious. If it's close to the benign memorized mean embedding, it's classified as benign;
 
 For a visual representation of this workflow, please refer to Figure 6 in the report.
 
