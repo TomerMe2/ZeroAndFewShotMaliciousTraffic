@@ -1,5 +1,23 @@
 # Learn to Detect Attacks Without Seeing Attacks
 
+Machine learning (ML) has demonstrated its effectiveness in identifying malicious network flows, addressing the core problem of network intrusion detection systems (NIDS). However, existing NIDS algorithms rely on training datasets that include known attacks, introducing a bias towards detecting similar zero-day attacks. For instance, attacks such as SYN flooding and port scanning may exhibit similar attributes like the number of packets per second or average packet size, leading to inherent biases when training on one known attack and testing on another. To mitigate this issue, we propose a method that enables the detection of attacks without the need to observe them during the training phase.
+
+Our method aims to address two main scenarios in attack detection:
+1. **Zero-shot detection of unseen attacks:** In this scenario, our algorithm operates autonomously after the training phase, capable of detecting attacks it has never encountered before, thereby reducing reliance on a pre-defined set of known attacks.
+2. **Few-shot detection of manually annotated attacks:** In this scenario, a security analyst identifies a suspicious network flow and manually annotates it for further investigation. Subsequently, our algorithm leverages this limited set of annotated flows to discover additional suspicious network flows exhibiting similar behavior, effectively assisting the analyst in identifying potential threats.
+
+
+## MetFlowGuard
+MetaFlowGuard is a neural network model trained using AAMSoftmax with the primary objective of classifying the source IP of networking flows. The model's workflow consists of three stages:
+
+1. **Training:** As discussed earlier, the neural network is trained with AAMSoftmax loss to classify source IP flows.
+2. **Memorization:** In this stage, we generate the mean embedding of each source IP in the zero-shot scenario and the mean embedding of each attack type in the few-shot scenario and memorize them.
+3. **Inference:** For each incoming flow, we calculate its embedding and determine its proximity to the memorized embeddings. In the zero-shot scenario, if it's close to the memorized embeddings, it's considered benign; otherwise, it's deemed malicious since we memorize benign flows. In the few-shot scenario, if it's close to the memorized embeddings, it's classified as malicious; otherwise, it's classified as benign since we memorize benign flows.
+
+For a visual representation of this workflow, please refer to Figure 6 in the report.
+
+
+
 ## Zero-Shot Evaluation
 Each value in the table represents TPR (True Positive Rate) at a specific FPR (False Positive Rate) value, denoted as TPR@FPR=$x$.
 (For example, MetaFlowGuard @0.01 will show that TPR of MetaFlowGuard algorithm at a FPR of 0.01)
