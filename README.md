@@ -48,7 +48,7 @@ Each value in the table represents TPR (True Positive Rate) at a specific FPR (F
 ## Few-Shot Evaluation
 ### IoTID20 dataset
 
-| Attack                | 1-shot @0.2 | 1-shot @0.25 | 10-shot @0.2| 10-shot @0.25 | 30-shot @0.2 | 30-shot @0.25 |
+| Attack                | 1-shot @0.25 | 1-shot @0.2 | 10-shot @0.25| 10-shot @0.2 | 30-shot @0.25 | 30-shot @0.2 |
 |-----------------------|----------------------|------------------------|-----------------------|-------------------------|------------------------|-------------------------|
 | DoS-Synflooding       | 0.84 $\pm$ 0.21      | 0.78 $\pm$ 0.21        | 0.97 $\pm$ 0.06       | 0.92 $\pm$ 0.06         | 0.99 $\pm$ 0.04       | 0.96 $\pm$ 0.04         |
 | MITM ARP Spoofing     | 0.74 $\pm$ 0.32      | 0.64 $\pm$ 0.26        | 0.92 $\pm$ 0.18       | 0.80 $\pm$ 0.16         | 0.98 $\pm$ 0.10       | 0.87 $\pm$ 0.11         |
