@@ -6,6 +6,7 @@ Our method aims to address two main scenarios in attack detection:
 1. **Zero-shot detection of unseen attacks:** In this scenario, our algorithm operates autonomously after the training phase, capable of detecting attacks it has never encountered before, thereby reducing reliance on a pre-defined set of known attacks.
 2. **Few-shot detection of manually annotated attacks:** In this scenario, a security analyst identifies a suspicious network flow and manually annotates it for further investigation. Subsequently, our algorithm leverages this limited set of annotated flows to discover additional suspicious network flows exhibiting similar behavior, effectively assisting the analyst in identifying potential threats.
 
+A full report can be found [here](https://github.com/TomerMe2/ZeroAndFewShotMaliciousTraffic/blob/main/report.pdf).
 
 ## MetFlowGuard
 MetaFlowGuard is a neural network model trained using AAMSoftmax with the primary objective of classifying the source IP of networking flows. The model's workflow consists of three stages:
